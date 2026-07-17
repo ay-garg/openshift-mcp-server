@@ -1,0 +1,55 @@
+# ── Python ──────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# ── Build / packaging ────────────────────────────────────────
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+MANIFEST
+
+# ── Virtual environments ─────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+.env.local
+
+# ── Secrets / local config ───────────────────────────────────
+.env
+# .env.example is intentionally committed — it has no real values
+
+# ── Claude Code local overrides ──────────────────────────────
+# settings.json (project MCP config) is committed intentionally
+# settings.local.json is machine-specific and must not be committed
+.claude/settings.local.json
+
+# ── Test / coverage artifacts ─────────────────────────────────
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# ── Type checkers ─────────────────────────────────────────────
+.mypy_cache/
+.ruff_cache/
+.pytype/
+
+# ── IDEs ──────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── macOS ─────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ── Logs ──────────────────────────────────────────────────────
+*.log

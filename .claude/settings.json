@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ocp": {
+      "command": ".venv/bin/python",
+      "args": ["-m", "ocp_mcp.server"],
+      "env": {
+        "PYTHONPATH": "src"
+      }
+    }
+  }
+}

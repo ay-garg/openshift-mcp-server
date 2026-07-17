@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ocp-mcp-server"
+version = "0.1.0"
+description = "Comprehensive OpenShift 4 MCP Server — LLM-assisted cluster operations"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.3.0,<2.0",
+    "kubernetes>=29.0.0",
+    "httpx>=0.27.0",
+    "pyyaml>=6.0",
+    "python-dateutil>=2.9.0",
+    "tabulate>=0.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
+ui = [
+    "gradio>=6.0",
+    "anthropic>=0.50.0",
+]
+
+[project.scripts]
+ocp-mcp-server = "ocp_mcp.server:main"
+ocp-mcp-ui = "ocp_mcp.ui:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ocp_mcp"]
