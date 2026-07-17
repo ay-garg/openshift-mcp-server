@@ -55,13 +55,11 @@ Connect it to Claude (Desktop, Code, or API) and ask natural-language questions 
 ## Installation
 
 ```bash
-git clone https://github.com/your-org/ocp-mcp-server.git
-cd ocp-mcp-server
+git clone https://github.com/your-org/openshift-mcp-server.git
+cd openshift-mcp-server
 
 python3 -m venv .venv
-source .venv/bin/activate
-
-pip install -e .
+.venv/bin/pip install -e .
 ```
 
 ---
@@ -229,7 +227,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 export MCP_TRANSPORT=sse
 export MCP_HOST=0.0.0.0   # bind to all interfaces for remote access
 export MCP_PORT=8080
-python -m ocp_mcp.server
+.venv/bin/ocp-mcp-server
 ```
 
 Then point your MCP client at `http://your-host:8080/sse`.
@@ -241,7 +239,7 @@ A browser-based UI with two tabs — no MCP client required.
 **Install UI dependencies:**
 
 ```bash
-pip install -e ".[ui]"
+.venv/bin/pip install -e ".[ui]"
 ```
 
 **Run:**
@@ -249,7 +247,7 @@ pip install -e ".[ui]"
 ```bash
 export OCP_API_URL=https://api.mycluster.example.com:6443
 export OCP_TOKEN=sha256~...
-ocp-mcp-ui
+.venv/bin/ocp-mcp-ui
 # Opens at http://localhost:7860
 ```
 
