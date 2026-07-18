@@ -39,8 +39,6 @@ Connect it to Claude (Desktop, Code, or API) and ask natural-language questions 
 | **MCP Resources** | 7 | Live cluster URIs: `ocp://cluster/info`, `ocp://{ns}/pods`, alerts, etc. |
 | **MCP Prompts** | 10 | SRE runbooks: troubleshoot pod, upgrade cluster, debug network, deploy ML model, and more |
 
-📖 **Blog:** [Konflux CI on OpenShift — Build, Sign, Test & Release with Enterprise Contract and SLSA Provenance](https://blackhatinside.com/2026/07/17/konflux-ci-on-openshift-build-sign-test-release-with-enterprise-contract-and-slsa-provenance/)
-
 ---
 
 ## Requirements
