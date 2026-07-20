@@ -255,6 +255,106 @@ export OCP_TOKEN=sha256~...
 
 ---
 
+## Interactive Chat Client (`mcp_chat.py`)
+
+`mcp_chat.py` is a standalone terminal chat client that connects to any running MCP SSE server and drives an agentic loop using the LLM of your choice. All configuration is prompted at startup — no environment variables required, though they are used as defaults when present.
+
+### Supported LLM providers
+
+| Provider | Auth |
+|---|---|
+| **Anthropic API** | API key |
+| **Google Vertex AI** | GCP project ID + region (GCP ADC — `gcloud auth application-default login`) |
+| **Ollama** | Base URL (local or remote) |
+| **OpenAI-compatible** | Base URL + optional API key (OpenAI, LM Studio, vLLM, llama.cpp, …) |
+
+### Install
+
+```bash
+pip install mcp anthropic "anthropic[vertex]" openai httpx
+```
+
+### Run
+
+```bash
+python mcp_chat.py
+```
+
+The script walks you through setup interactively:
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║                  MCP Chat — Setup                           ║
+╚══════════════════════════════════════════════════════════════╝
+
+MCP server SSE URL [http://localhost:8080/sse]:
+
+LLM provider
+  1. Anthropic API  (API key)
+  2. Google Vertex AI  (GCP project ID + region, GCP ADC auth)
+  3. Ollama  (local or remote)
+  4. OpenAI-compatible  (OpenAI / LM Studio / vLLM / llama.cpp / …)
+Choice:
+```
+
+### Self-signed / internal CA certificates
+
+When an HTTPS URL is entered (for the MCP server or the model endpoint) the script asks whether the certificate is CA-signed or self-signed:
+
+```
+  The MCP server URL is using HTTPS.
+  Does it use a valid CA-signed certificate? (answer 'n' for self-signed / internal CA) [Y/n]:
+```
+
+Answering **`n`** disables SSL verification for that endpoint automatically. This is the correct answer for:
+
+- **CRC (CodeReady Containers)** — uses a self-signed router CA
+- **Self-hosted OpenShift** clusters with internal PKI
+- **Local Ollama or OpenAI-compatible servers** fronted by nginx with a self-signed cert
+
+> **Note:** For the MCP server connection, SSL verification is disabled by patching `httpx.AsyncClient` for the duration of the session (the MCP SDK does not expose a `verify=` parameter directly). For Ollama/OpenAI-compatible clients, `httpx.Client(verify=False)` is passed directly. Anthropic API and Google Vertex AI always use CA-signed certificates and are never prompted.
+
+### Environment variable defaults
+
+All prompts use environment variables as pre-filled defaults so repeat runs need fewer keystrokes:
+
+| Prompt | Env var |
+|---|---|
+| MCP server URL | `MCP_SERVER_URL` |
+| Anthropic API key | `ANTHROPIC_API_KEY` |
+| Model (Anthropic / Vertex) | `ANTHROPIC_MODEL` |
+| GCP project ID | `ANTHROPIC_VERTEX_PROJECT_ID` or `GOOGLE_CLOUD_PROJECT` |
+| GCP region | `CLOUD_ML_REGION` or `ANTHROPIC_VERTEX_REGION` |
+| Ollama base URL | `OLLAMA_HOST` |
+| Ollama model | `OLLAMA_MODEL` |
+| OpenAI base URL | `OPENAI_BASE_URL` |
+| OpenAI API key | `OPENAI_API_KEY` |
+| OpenAI model | `OPENAI_MODEL` |
+
+### Example session (Vertex AI + CRC cluster)
+
+```bash
+# Port-forward the deployed MCP server
+oc port-forward svc/ocp-mcp-server 8080:8080 -n ocp-mcp &
+
+python mcp_chat.py
+# MCP server SSE URL [http://localhost:8080/sse]: https://ocp-mcp-server-ocp-mcp.apps-crc.testing/sse
+#   The MCP server URL is using HTTPS.
+#   Does it use a valid CA-signed certificate? [Y/n]: n
+#   ⚠  SSL verification disabled for MCP server (self-signed cert).
+# LLM provider → 2 (Google Vertex AI)
+# GCP project ID: my-gcp-project
+# Region [us-east5]:
+# Model [claude-opus-4-8]:
+# Ready — 216 tools available | provider: vertex | model: claude-opus-4-8
+
+You: What nodes are in my cluster and are any under memory pressure?
+  → list_nodes({})
+  → get_node_conditions({"node":"crc-xxxxx-master-0"})
+```
+
+---
+
 ## Container & OpenShift Deployment
 
 This section covers building the container image and deploying to OpenShift or any Kubernetes cluster.
@@ -626,6 +726,20 @@ Prompts are pre-built operational runbooks that the LLM can invoke to get step-b
 ocp-mcp-server/
 ├── pyproject.toml                  # package metadata and dependencies
 ├── .env.example                    # environment variable reference
+├── Containerfile                   # multi-stage UBI9 container image build
+├── entrypoint.sh                   # container entrypoint (server or Gradio UI mode)
+├── mcp_chat.py                     # universal interactive chat client (multi-provider)
+├── deploy/                         # OpenShift / Kubernetes manifests
+│   ├── kustomization.yaml
+│   ├── namespace.yaml
+│   ├── serviceaccount.yaml
+│   ├── clusterrolebinding.yaml
+│   ├── configmap.yaml
+│   ├── secret.yaml                 # template only — create via oc create secret
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   ├── route.yaml
+│   └── inspector.yaml              # optional MCP Inspector pod (port-forward access)
 ├── .claude/
 │   └── settings.json               # Claude Code MCP configuration
 └── src/
