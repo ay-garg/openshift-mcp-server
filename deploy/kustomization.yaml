@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ocp-mcp
+
+# Core resources — apply all with: oc apply -k deploy/
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - clusterrolebinding.yaml
+  - configmap.yaml
+  - deployment.yaml
+  - service.yaml
+  - route.yaml
+
+# Before applying:
+#   1. Create the credentials Secret (see deploy/secret.yaml for the oc command).
+#   2. Edit deployment.yaml: replace quay.io/your-org/ocp-mcp-server:latest
+#      with your actual image reference.
+#
+# MCP Inspector (optional, dev/debug only):
+#   oc apply -f deploy/inspector.yaml

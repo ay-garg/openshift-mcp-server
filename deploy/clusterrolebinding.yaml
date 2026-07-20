@@ -1,0 +1,23 @@
+# Grants cluster-admin to the ocp-mcp-server ServiceAccount.
+#
+# SECURITY NOTE: cluster-admin is required for the full tool surface (nodes,
+# machines, SCCs, ClusterOperators, etc.). For a read-only deployment, replace
+# with a custom ClusterRole limited to list/get/watch verbs. For a scoped
+# deployment that only manages one namespace, use a RoleBinding instead.
+#
+# To scope further, create a ClusterRole with only the verbs/resources your
+# use case needs and bind it here.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ocp-mcp-server
+  labels:
+    app.kubernetes.io/name: ocp-mcp-server
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: ocp-mcp-server
+    namespace: ocp-mcp

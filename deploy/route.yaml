@@ -1,0 +1,24 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: ocp-mcp-server
+  namespace: ocp-mcp
+  labels:
+    app.kubernetes.io/name: ocp-mcp-server
+  annotations:
+    # SSE connections are long-lived; increase the default 30 s HAProxy timeout.
+    haproxy.router.openshift.io/timeout: "300s"
+spec:
+  to:
+    kind: Service
+    name: ocp-mcp-server
+    weight: 100
+  port:
+    targetPort: mcp-sse
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+# After applying, get the public URL:
+#   oc get route ocp-mcp-server -n ocp-mcp -o jsonpath='{.spec.host}'
+# MCP clients connect to: https://<host>/sse

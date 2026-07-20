@@ -1,0 +1,128 @@
+# MCP Inspector — optional, for debugging and development only.
+#
+# Provides a browser-based UI to browse all 216 tools, 7 resources, and
+# 10 prompts; send test calls; and inspect MCP protocol messages in real time.
+#
+# SECURITY: The inspector provides full read/write access to the MCP server.
+# Do NOT expose it publicly in production without auth. Access it via the Route
+# created below, or restrict with a NetworkPolicy.
+#
+# Deploy:  oc apply -f inspector.yaml -n ocp-mcp
+# Remove:  oc delete -f inspector.yaml -n ocp-mcp
+#
+# WHY ROUTE ACCESS DOES NOT WORK:
+#   The inspector proxy backend binds to 127.0.0.1 (loopback) by design.
+#   The browser-side JS connects to the proxy at localhost:SERVER_PORT.
+#   Via a Route, "localhost" in the browser resolves to the user's machine,
+#   not the pod — so the proxy is never reachable through a Route.
+#   This is a design constraint of the @modelcontextprotocol/inspector package.
+#
+# ACCESS via oc port-forward (required):
+#   oc port-forward svc/mcp-inspector 6274:6274 6277:6277 -n ocp-mcp
+#   Open http://localhost:6274 in your browser.
+#   Set transport SSE, URL: http://ocp-mcp-server:8080/sse
+#
+# ALTERNATIVE for remote/browser access without port-forward:
+#   Use the built-in Gradio web UI (OCP_MODE=ui) — it has a Tool Playground tab
+#   that lets you browse and invoke all 216 tools via a Route, no MCP client needed.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-inspector
+  namespace: ocp-mcp
+  labels:
+    app.kubernetes.io/name: mcp-inspector
+    app.kubernetes.io/component: inspector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mcp-inspector
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mcp-inspector
+        app.kubernetes.io/component: inspector
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mcp-inspector
+          image: node:20-slim
+          command:
+            - npx
+            - "--yes"
+            - "@modelcontextprotocol/inspector"
+          ports:
+            - name: inspector-ui
+              containerPort: 6274
+              protocol: TCP
+            - name: inspector-proxy
+              containerPort: 6277
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "6274"
+            - name: SERVER_PORT
+              value: "6277"
+            # Disable per-restart session token so port-forward access does not
+            # require retrieving a new token from pod logs on every restart.
+            - name: DANGEROUSLY_OMIT_AUTH
+              value: "true"
+            - name: NPM_CONFIG_CACHE
+              value: /tmp/.npm
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            # No runAsUser — OpenShift assigns a UID from the namespace range automatically.
+          livenessProbe:
+            tcpSocket:
+              port: 6274
+            initialDelaySeconds: 40
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 6274
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          startupProbe:
+            tcpSocket:
+              port: 6274
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 18          # 90 s window for npx cold download
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-inspector
+  namespace: ocp-mcp
+  labels:
+    app.kubernetes.io/name: mcp-inspector
+spec:
+  selector:
+    app.kubernetes.io/name: mcp-inspector
+  type: ClusterIP
+  ports:
+    - name: inspector-ui
+      port: 6274
+      targetPort: 6274
+      protocol: TCP
+    - name: inspector-proxy
+      port: 6277
+      targetPort: 6277
+      protocol: TCP
+# Route intentionally omitted — see file header for explanation.
+# The inspector requires port-forward access (both ports on localhost).

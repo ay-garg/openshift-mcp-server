@@ -255,6 +255,290 @@ export OCP_TOKEN=sha256~...
 
 ---
 
+## Container & OpenShift Deployment
+
+This section covers building the container image and deploying to OpenShift or any Kubernetes cluster.
+
+### Prerequisites
+
+- [Podman](https://podman.io/) or Docker for building/pushing the image
+- Access to a container registry (Quay.io, OpenShift internal registry, etc.)
+- `oc` CLI logged in to your cluster
+
+---
+
+### 1. Build the image
+
+```bash
+# Clone and enter the repo
+git clone https://github.com/your-org/openshift-mcp-server.git
+cd openshift-mcp-server
+
+# Build with Podman (recommended for OpenShift)
+podman build -f Containerfile -t quay.io/your-org/ocp-mcp-server:latest .
+
+# Multi-arch build (amd64 + arm64)
+podman buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -f Containerfile \
+  -t quay.io/your-org/ocp-mcp-server:latest .
+podman push quay.io/your-org/ocp-mcp-server:latest
+```
+
+**Build arguments:**
+
+| Argument | Default | Description |
+|---|---|---|
+| `OC_VERSION` | `stable` | OpenShift CLI version; e.g. `4.16.3` to pin a release |
+| `VIRTCTL_VERSION` | `v1.4.0` | KubeVirt virtctl version |
+| `TARGETARCH` | `amd64` | CPU architecture: `amd64` or `arm64` (set automatically by BuildKit) |
+
+```bash
+# Pin specific CLI versions
+podman build -f Containerfile \
+  --build-arg OC_VERSION=4.16.3 \
+  --build-arg VIRTCTL_VERSION=v1.4.0 \
+  -t quay.io/your-org/ocp-mcp-server:4.16.3 .
+```
+
+---
+
+### 2. Push the image
+
+```bash
+podman push quay.io/your-org/ocp-mcp-server:latest
+```
+
+For the OpenShift internal registry:
+
+```bash
+# Log in to the internal registry
+oc registry login
+IMAGE="$(oc registry info)/ocp-mcp/ocp-mcp-server:latest"
+podman build -f Containerfile -t "$IMAGE" .
+podman push "$IMAGE"
+```
+
+---
+
+### 3. Deploy to OpenShift
+
+#### 3a. Create the namespace
+
+```bash
+oc new-project ocp-mcp
+# or:
+oc apply -f deploy/namespace.yaml
+```
+
+#### 3b. Create the credentials Secret
+
+The Secret holds cluster auth and the optional Anthropic API key. **Never commit real values.**
+
+**In-cluster deployment** (server manages the same cluster it runs in — no credentials needed):
+
+```bash
+# Only set ANTHROPIC_API_KEY if you want the Gradio AI Chat tab
+oc create secret generic ocp-mcp-server-credentials \
+  --from-literal=ANTHROPIC_API_KEY=sk-ant-xxxxxxxx \
+  -n ocp-mcp
+
+# If no Anthropic key either, create an empty secret:
+oc create secret generic ocp-mcp-server-credentials -n ocp-mcp
+```
+
+**External cluster** (server is deployed elsewhere and manages a remote cluster):
+
+```bash
+# Single cluster — token auth (recommended)
+oc create secret generic ocp-mcp-server-credentials \
+  --from-literal=OCP_API_URL=https://api.cluster.example.com:6443 \
+  --from-literal=OCP_TOKEN=sha256~xxxxxxxxxxxxxxxxxxxxxxxx \
+  --from-literal=ANTHROPIC_API_KEY=sk-ant-xxxxxxxx \
+  -n ocp-mcp
+
+# Multi-cluster
+oc create secret generic ocp-mcp-server-credentials \
+  --from-literal=OCP_CLUSTERS='[
+    {"name":"prod",    "api_url":"https://api.prod.example.com:6443",    "token":"sha256~prod..."},
+    {"name":"staging", "api_url":"https://api.staging.example.com:6443", "token":"sha256~staging..."}
+  ]' \
+  --from-literal=ANTHROPIC_API_KEY=sk-ant-xxxxxxxx \
+  -n ocp-mcp
+```
+
+> **Tip:** Generate a long-lived ServiceAccount token for the MCP server:
+> ```bash
+> oc create serviceaccount mcp-server -n default
+> oc adm policy add-cluster-role-to-user cluster-admin -z mcp-server -n default
+> oc create token mcp-server -n default --duration=8760h
+> ```
+
+#### 3c. Edit the image reference
+
+Open `deploy/deployment.yaml` and replace the placeholder image:
+
+```yaml
+image: quay.io/your-org/ocp-mcp-server:latest
+```
+
+#### 3d. Apply all resources
+
+```bash
+# Using kustomize (recommended)
+oc apply -k deploy/
+
+# Or apply individually
+oc apply -f deploy/serviceaccount.yaml
+oc apply -f deploy/clusterrolebinding.yaml
+oc apply -f deploy/configmap.yaml
+oc apply -f deploy/deployment.yaml
+oc apply -f deploy/service.yaml
+oc apply -f deploy/route.yaml
+```
+
+#### 3e. Verify the deployment
+
+```bash
+# Check pod status
+oc get pods -n ocp-mcp -l app.kubernetes.io/name=ocp-mcp-server
+
+# Check logs
+oc logs -n ocp-mcp -l app.kubernetes.io/name=ocp-mcp-server -f
+
+# Get the public MCP SSE URL
+oc get route ocp-mcp-server -n ocp-mcp -o jsonpath='{.spec.host}'
+```
+
+The server is ready when you see a line like:
+```
+INFO:     Started server process
+INFO:     Uvicorn running on http://0.0.0.0:8080
+```
+
+---
+
+### 4. Connect an MCP client
+
+Once deployed, point your MCP client at the Route URL:
+
+```
+https://<route-host>/sse
+```
+
+**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "ocp": {
+      "transport": "sse",
+      "url": "https://<route-host>/sse"
+    }
+  }
+}
+```
+
+**Claude Code** (`.claude/settings.json` in your project):
+
+```json
+{
+  "mcpServers": {
+    "ocp": {
+      "type": "sse",
+      "url": "https://<route-host>/sse"
+    }
+  }
+}
+```
+
+---
+
+### 5. MCP Inspector
+
+The [MCP Inspector](https://github.com/modelcontextprotocol/inspector) is a browser-based UI for exploring MCP tools, resources, and prompts at the protocol level.
+
+> **Route access is not possible** with the standard inspector package. Its proxy backend binds to `127.0.0.1` (loopback) by design, and the browser-side JS connects to the proxy at `localhost:SERVER_PORT`. Via a Route, `localhost` resolves to the user's machine — not the pod — so the proxy is never reachable. `oc port-forward` is required.
+>
+> For remote browser-based tool exploration without port-forward, use the **Gradio web UI** instead (see section 7 below) — it has a Tool Playground tab covering all 216 tools and works via a standard Route.
+
+**Deploy:**
+
+```bash
+oc apply -f deploy/inspector.yaml -n ocp-mcp
+```
+
+**Access via port-forward (required):**
+
+```bash
+# Forward both ports — UI (6274) and proxy backend (6277)
+oc port-forward svc/mcp-inspector 6274:6274 6277:6277 -n ocp-mcp
+```
+
+Open **`http://localhost:6274`** in your browser, then connect with:
+
+| Field | Value |
+|---|---|
+| Transport | SSE |
+| URL | `http://ocp-mcp-server:8080/sse` |
+
+Use the internal ClusterIP service name — the inspector proxy (inside the pod) makes the actual connection to the MCP server, not the browser.
+
+**Remove when done:**
+
+```bash
+oc delete -f deploy/inspector.yaml -n ocp-mcp
+```
+
+---
+
+### 6. Deploy the Gradio web UI
+
+The Gradio UI runs as a separate Deployment using the same image with `OCP_MODE=ui`.
+
+Edit `deploy/deployment.yaml`, add a second Deployment (or patch the existing one):
+
+```yaml
+# Add to the container's env section:
+- name: OCP_MODE
+  value: "ui"
+# Change containerPort to 7860 and update the Service/Route accordingly.
+```
+
+Or run it locally:
+
+```bash
+docker compose --profile ui up
+```
+
+---
+
+### 7. Environment variables reference (container)
+
+All variables from [Environment variables reference](#environment-variables-reference) apply. Container-specific additions:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `OCP_MODE` | `server` | `server` — MCP server; `ui` — Gradio web UI |
+| `MCP_TRANSPORT` | `stdio` | Always set to `sse` in Kubernetes/OpenShift |
+| `MCP_HOST` | `127.0.0.1` | Set to `0.0.0.0` in containers (already in ConfigMap) |
+
+---
+
+### 8. Production checklist
+
+- [ ] Image pushed to a private registry with image pull secret configured
+- [ ] Credentials Secret created with real values (not the template YAML)
+- [ ] `OCP_SKIP_TLS_VERIFY` and `OCP_VERIFY_SSL` set correctly for your cluster's TLS posture
+- [ ] ClusterRoleBinding scoped to the minimum permissions your use case needs (see `deploy/clusterrolebinding.yaml`)
+- [ ] Route has TLS edge termination with `insecureEdgeTerminationPolicy: Redirect`
+- [ ] MCP Inspector NOT deployed (or behind port-forward only) in production
+- [ ] `ANTHROPIC_API_KEY` rotated on the schedule required by your org's secret management policy
+- [ ] Resource `requests`/`limits` tuned to observed usage (check `oc top pod`)
+- [ ] NetworkPolicy applied to restrict ingress to the SSE port from known LLM clients only
+
+---
+
 ## MCP Resources
 
 Resources expose live cluster state as URI-addressable read-only content. MCP clients can subscribe to them and display them alongside tool results.

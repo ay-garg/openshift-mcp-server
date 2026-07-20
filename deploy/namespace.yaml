@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ocp-mcp
+  labels:
+    app.kubernetes.io/name: ocp-mcp-server
+# OpenShift alternative: oc new-project ocp-mcp

@@ -53,3 +53,8 @@ htmlcov/
 
 # ── Logs ──────────────────────────────────────────────────────
 *.log
+
+# ── Container build artifacts ─────────────────────────────────
+# deploy/secret.yaml is a TEMPLATE (no real values) and IS committed.
+# If you accidentally populate it, add it here temporarily:
+# deploy/secret-real.yaml

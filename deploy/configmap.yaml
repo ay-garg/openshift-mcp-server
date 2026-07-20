@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ocp-mcp-server
+  namespace: ocp-mcp
+  labels:
+    app.kubernetes.io/name: ocp-mcp-server
+data:
+  # ── MCP transport ────────────────────────────────────────────────────────
+  # Always "sse" in Kubernetes/OpenShift — stdio has no network exposure.
+  MCP_TRANSPORT: "sse"
+  MCP_HOST: "0.0.0.0"
+  MCP_PORT: "8080"
+  OCP_MODE: "server"
+
+  # ── TLS verification ─────────────────────────────────────────────────────
+  # OCP_SKIP_TLS_VERIFY: controls the kubernetes Python client (API calls).
+  #   Set "true" only for self-signed dev/lab cluster certificates.
+  OCP_SKIP_TLS_VERIFY: "true"
+  # OCP_VERIFY_SSL: controls httpx calls to Prometheus and Alertmanager.
+  OCP_VERIFY_SSL: "false"
+
+  # ── Prometheus / Alertmanager (optional overrides) ───────────────────────
+  # Auto-detected from thanos-querier when not set. Uncomment to override.
+  # OCP_PROMETHEUS_URL: "https://thanos-querier.openshift-monitoring.svc:9091"
+  # OCP_ALERTMANAGER_URL: "https://alertmanager-main.openshift-monitoring.svc:9093"
+
+  # ── Gradio web UI (only used when OCP_MODE=ui) ───────────────────────────
+  GRADIO_HOST: "0.0.0.0"
+  GRADIO_PORT: "7860"
+  GRADIO_SHARE: "false"
+
+  # ── AI Chat model (only used by Gradio UI tab) ───────────────────────────
+  ANTHROPIC_MODEL: "claude-sonnet-5"

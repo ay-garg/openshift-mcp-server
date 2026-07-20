@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ocp-mcp-server
+  namespace: ocp-mcp
+  labels:
+    app.kubernetes.io/name: ocp-mcp-server
+spec:
+  selector:
+    app.kubernetes.io/name: ocp-mcp-server
+  type: ClusterIP
+  ports:
+    - name: mcp-sse
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
