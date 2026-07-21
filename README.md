@@ -1,6 +1,6 @@
-# OpenShift 4 MCP Server
+# OpenShift & Kubernetes MCP Server
 
-A comprehensive [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that exposes **216 tools**, **7 resources**, and **10 runbook prompts** for every OpenShift 4 cluster operation an SRE, developer, or operator could need — all driven by an LLM.
+A comprehensive [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that exposes **216 tools**, **7 resources**, and **10 runbook prompts** for cluster operations — all driven by an LLM. Works with **OpenShift 4** and **vanilla Kubernetes**; OpenShift-specific tools (Routes, BuildConfigs, SCCs, OLM, Machines, RHOAI, Virtualization) return a clear error on plain Kubernetes clusters that don't have those APIs.
 
 Connect it to Claude (Desktop, Code, or API) and ask natural-language questions like:
 
@@ -9,6 +9,53 @@ Connect it to Claude (Desktop, Code, or API) and ask natural-language questions 
 > *"Show me all firing alerts and create a 4-hour silence for the watchdog."*
 > *"Live-migrate VM database-0 to another node."*
 > *"Deploy llama-3 with KServe in the ds-team namespace."*
+> *"What's the status of my Tekton pipeline run in namespace ci?"*
+> *"Show me all Konflux components and their latest snapshot status."*
+
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Authentication](#authentication)
+  - [OCP_CLUSTERS — multi-cluster JSON](#1-ocp_clusters--multi-cluster-json-highest-priority)
+  - [Service Account Token](#2-service-account-token-recommended-for-cicd)
+  - [Username / Password](#3-username--password)
+  - [kubeconfig](#4-kubeconfig-default-for-local-dev)
+  - [In-cluster](#5-in-cluster-when-running-inside-a-pod)
+  - [TLS verification](#tls-verification)
+- [Multi-cluster](#multi-cluster)
+- [Monitoring / Prometheus](#monitoring--prometheus)
+- [Environment variables reference](#environment-variables-reference)
+- [Usage with Claude](#usage-with-claude)
+  - [Claude Code](#claude-code-this-repository)
+  - [Claude Desktop](#claude-desktop)
+  - [Streamable HTTP transport](#streamable-http-transport-for-remote-use-or-web-apps)
+  - [Web UI (Gradio)](#web-ui-gradio)
+- [Interactive Chat Client](#interactive-chat-client-mcp_chatpy)
+- [Container Deployment](#container--openshift-deployment)
+  - [1. Build the image](#1-build-the-image)
+  - [2. Push the image](#2-push-the-image)
+  - [3. Deploy to OpenShift](#3-deploy-to-openshift)
+  - [3b. Deploy to vanilla Kubernetes](#3b-deploy-to-vanilla-kubernetes)
+  - [4. Connect an MCP client](#4-connect-an-mcp-client)
+  - [5. MCP Inspector](#5-mcp-inspector)
+  - [6. Deploy the Gradio web UI](#6-deploy-the-gradio-web-ui)
+  - [7. Environment variables reference (container)](#7-environment-variables-reference-container)
+  - [8. Production checklist](#8-production-checklist)
+- [MCP Resources](#mcp-resources)
+- [MCP Prompts](#mcp-prompts)
+- [Example prompts](#example-prompts)
+- [Repository structure](#repository-structure)
+- [Architecture](#architecture)
+- [Adding a new tool](#adding-a-new-tool)
+- [Tool highlights](#tool-highlights)
+- [Dependencies](#dependencies)
+- [Security considerations](#security-considerations)
+- [License](#license)
+- [Contributing](#contributing)
 
 ---
 
@@ -179,9 +226,9 @@ export OCP_PROMETHEUS_TOKEN=sha256~...   # defaults to OCP_TOKEN
 | `OCP_ALERTMANAGER_URL` | auto-derived | Alertmanager URL |
 | `OCP_PROMETHEUS_TOKEN` | `OCP_TOKEN` | Token for Prometheus/Alertmanager HTTP calls |
 | `OCP_VERIFY_SSL` | `true` | Set `false` to skip TLS for Prometheus/Alertmanager HTTP calls |
-| `MCP_TRANSPORT` | `stdio` | `stdio` or `sse` |
-| `MCP_HOST` | `127.0.0.1` | Bind address for SSE transport |
-| `MCP_PORT` | `8080` | Port for SSE transport |
+| `MCP_TRANSPORT` | `stdio` | `stdio` or `streamable-http` |
+| `MCP_HOST` | `127.0.0.1` | Bind address for streamable-http transport |
+| `MCP_PORT` | `8080` | Port for streamable-http transport |
 | `GRADIO_HOST` | `0.0.0.0` | Bind address for the Gradio web UI |
 | `GRADIO_PORT` | `7860` | Port for the Gradio web UI |
 | `GRADIO_SHARE` | `false` | Set `true` for a temporary public Gradio URL |
@@ -216,19 +263,19 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 }
 ```
 
-### SSE transport (for remote use or web apps)
+### Streamable HTTP transport (for remote use or web apps)
 
 > **Note:** `MCP_HOST` defaults to `127.0.0.1` (loopback-only, with DNS-rebinding protection enabled by the MCP SDK).
 > Set `MCP_HOST=0.0.0.0` explicitly when you need external access.
 
 ```bash
-export MCP_TRANSPORT=sse
+export MCP_TRANSPORT=streamable-http
 export MCP_HOST=0.0.0.0   # bind to all interfaces for remote access
 export MCP_PORT=8080
 .venv/bin/ocp-mcp-server
 ```
 
-Then point your MCP client at `http://your-host:8080/sse`.
+Then point your MCP client at `http://your-host:8080/mcp`.
 
 ### Web UI (Gradio)
 
@@ -257,7 +304,7 @@ export OCP_TOKEN=sha256~...
 
 ## Interactive Chat Client (`mcp_chat.py`)
 
-`mcp_chat.py` is a standalone terminal chat client that connects to any running MCP SSE server and drives an agentic loop using the LLM of your choice. All configuration is prompted at startup — no environment variables required, though they are used as defaults when present.
+`mcp_chat.py` is a standalone terminal chat client that connects to any running MCP server and drives an agentic loop using the LLM of your choice. All configuration is prompted at startup — no environment variables required, though they are used as defaults when present.
 
 ### Supported LLM providers
 
@@ -287,7 +334,7 @@ The script walks you through setup interactively:
 ║                  MCP Chat — Setup                           ║
 ╚══════════════════════════════════════════════════════════════╝
 
-MCP server SSE URL [http://localhost:8080/sse]:
+MCP server URL [http://localhost:8080/mcp]:
 
 LLM provider
   1. Anthropic API  (API key)
@@ -338,7 +385,7 @@ All prompts use environment variables as pre-filled defaults so repeat runs need
 oc port-forward svc/ocp-mcp-server 8080:8080 -n ocp-mcp &
 
 python mcp_chat.py
-# MCP server SSE URL [http://localhost:8080/sse]: https://ocp-mcp-server-ocp-mcp.apps-crc.testing/sse
+# MCP server URL [http://localhost:8080/mcp]: https://ocp-mcp-server-ocp-mcp.apps-crc.testing/mcp
 #   The MCP server URL is using HTTPS.
 #   Does it use a valid CA-signed certificate? [Y/n]: n
 #   ⚠  SSL verification disabled for MCP server (self-signed cert).
@@ -506,7 +553,7 @@ oc get pods -n ocp-mcp -l app.kubernetes.io/name=ocp-mcp-server
 # Check logs
 oc logs -n ocp-mcp -l app.kubernetes.io/name=ocp-mcp-server -f
 
-# Get the public MCP SSE URL
+# Get the public MCP URL
 oc get route ocp-mcp-server -n ocp-mcp -o jsonpath='{.spec.host}'
 ```
 
@@ -518,12 +565,67 @@ INFO:     Uvicorn running on http://0.0.0.0:8080
 
 ---
 
+### 3b. Deploy to vanilla Kubernetes
+
+The same manifests work on any Kubernetes cluster. The differences from the OpenShift steps above:
+
+- Use `kubectl` instead of `oc`
+- Use `deploy/ingress.yaml` instead of `deploy/route.yaml` (Ingress requires an ingress controller such as nginx-ingress)
+- Skip `deploy/namespace.yaml` if your cluster auto-creates namespaces; otherwise `kubectl create namespace ocp-mcp`
+
+#### Create the namespace and credentials
+
+```bash
+kubectl create namespace ocp-mcp
+
+# Token auth (replace with your cluster API URL and token)
+kubectl create secret generic ocp-mcp-server-credentials \
+  --from-literal=OCP_API_URL=https://api.k8s.example.com:6443 \
+  --from-literal=OCP_TOKEN=<serviceaccount-token> \
+  -n ocp-mcp
+```
+
+Generate a long-lived ServiceAccount token:
+
+```bash
+kubectl create serviceaccount mcp-server -n default
+kubectl create clusterrolebinding mcp-server-admin \
+  --clusterrole=cluster-admin --serviceaccount=default:mcp-server
+kubectl create token mcp-server -n default --duration=8760h
+```
+
+#### Apply the manifests
+
+```bash
+# Apply all resources except the OpenShift Route
+kubectl apply -f deploy/serviceaccount.yaml
+kubectl apply -f deploy/clusterrolebinding.yaml
+kubectl apply -f deploy/configmap.yaml
+kubectl apply -f deploy/deployment.yaml
+kubectl apply -f deploy/service.yaml
+kubectl apply -f deploy/ingress.yaml   # Kubernetes Ingress (not Route)
+```
+
+Edit `deploy/ingress.yaml` first to set the correct hostname for your cluster.
+
+#### Verify
+
+```bash
+kubectl get pods -n ocp-mcp -l app.kubernetes.io/name=ocp-mcp-server
+kubectl logs -n ocp-mcp -l app.kubernetes.io/name=ocp-mcp-server -f
+kubectl get ingress -n ocp-mcp
+```
+
+**Kubernetes compatibility note:** Core tools (workloads, networking, storage, RBAC, config, monitoring, Tekton Pipelines) work on any Kubernetes cluster. Tools for OpenShift-specific APIs (Routes, BuildConfigs, SCCs, OLM, Machines, OpenShift AI, Virtualization, Service Mesh, ACM) return a clear `"API not available"` message on clusters where those CRDs are absent — they do not crash the server.
+
+---
+
 ### 4. Connect an MCP client
 
 Once deployed, point your MCP client at the Route URL:
 
 ```
-https://<route-host>/sse
+https://<route-host>/mcp
 ```
 
 **Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
@@ -532,8 +634,8 @@ https://<route-host>/sse
 {
   "mcpServers": {
     "ocp": {
-      "transport": "sse",
-      "url": "https://<route-host>/sse"
+      "transport": "http",
+      "url": "https://<route-host>/mcp"
     }
   }
 }
@@ -545,8 +647,8 @@ https://<route-host>/sse
 {
   "mcpServers": {
     "ocp": {
-      "type": "sse",
-      "url": "https://<route-host>/sse"
+      "type": "http",
+      "url": "https://<route-host>/mcp"
     }
   }
 }
@@ -579,8 +681,8 @@ Open **`http://localhost:6274`** in your browser, then connect with:
 
 | Field | Value |
 |---|---|
-| Transport | SSE |
-| URL | `http://ocp-mcp-server:8080/sse` |
+| Transport | Streamable HTTP |
+| URL | `http://ocp-mcp-server:8080/mcp` |
 
 Use the internal ClusterIP service name — the inspector proxy (inside the pod) makes the actual connection to the MCP server, not the browser.
 
@@ -620,7 +722,7 @@ All variables from [Environment variables reference](#environment-variables-refe
 | Variable | Default | Purpose |
 |---|---|---|
 | `OCP_MODE` | `server` | `server` — MCP server; `ui` — Gradio web UI |
-| `MCP_TRANSPORT` | `stdio` | Always set to `sse` in Kubernetes/OpenShift |
+| `MCP_TRANSPORT` | `stdio` | Always set to `streamable-http` in Kubernetes/OpenShift |
 | `MCP_HOST` | `127.0.0.1` | Set to `0.0.0.0` in containers (already in ConfigMap) |
 
 ---
@@ -635,7 +737,7 @@ All variables from [Environment variables reference](#environment-variables-refe
 - [ ] MCP Inspector NOT deployed (or behind port-forward only) in production
 - [ ] `ANTHROPIC_API_KEY` rotated on the schedule required by your org's secret management policy
 - [ ] Resource `requests`/`limits` tuned to observed usage (check `oc top pod`)
-- [ ] NetworkPolicy applied to restrict ingress to the SSE port from known LLM clients only
+- [ ] NetworkPolicy applied to restrict ingress to the MCP port from known LLM clients only
 
 ---
 
@@ -783,7 +885,7 @@ ocp-mcp-server/
 ```
 LLM (Claude)
     │
-    │  MCP protocol (stdio or SSE)
+    │  MCP protocol (stdio or streamable-http)
     ▼
 ocp-mcp-server
     │
@@ -896,13 +998,69 @@ def my_new_tool(name: str, namespace: str = "default", cluster: str = "") -> str
 | `run_oc_command` | Escape hatch: run any `oc` command (blocked verbs: `delete`, `exec`, `replace`) |
 | `list_crds` | List all CustomResourceDefinitions |
 
+### Tekton Pipelines (`pipelines.py`)
+
+Works on any Kubernetes cluster with Tekton installed (including OpenShift Pipelines).
+
+| Tool | Description |
+|---|---|
+| `list_pipelines` | List Pipelines in a namespace |
+| `get_pipeline` | Full Pipeline spec: tasks, params, workspaces |
+| `list_pipeline_runs` | List PipelineRuns with status; filter by label selector |
+| `get_pipeline_run` | PipelineRun detail: task statuses, params, start/end time, duration |
+| `start_pipeline_run` | Trigger a new PipelineRun with optional params and workspaces |
+| `cancel_pipeline_run` | Cancel a running PipelineRun |
+| `list_tasks` | List Tasks in a namespace |
+| `list_task_runs` | List TaskRuns with status |
+| `list_trigger_templates` | List TriggerTemplates (webhook-driven pipeline triggers) |
+| `list_event_listeners` | List EventListeners and their trigger bindings |
+
+Example prompts:
+
+```
+"List all pipeline runs in namespace ci and show me which ones failed"
+"Get the full log context for pipeline run build-frontend-xyz"
+"Start pipeline build-and-push in namespace ci with IMAGE=quay.io/org/app:latest"
+"Cancel the running pipeline run deploy-staging-abc"
+"What triggers are configured in the platform namespace?"
+```
+
+### Konflux / RHTAP (`konflux.py`)
+
+Konflux (Red Hat Trusted Application Pipeline) tools. Requires the Konflux CRDs (`appstudio.redhat.com`) installed on your cluster.
+
+| Tool | Description |
+|---|---|
+| `list_konflux_applications` | List Konflux Applications in a workspace/namespace |
+| `get_konflux_application` | Application detail: components, environments, status |
+| `list_components` | List Components; filter by application |
+| `get_component` | Component detail: source repo, build pipeline, container image |
+| `create_component` | Register a new Component from a git repository |
+| `list_snapshots` | List Snapshots; filter by application |
+| `get_snapshot_status` | Snapshot status including all integration test results |
+| `list_integration_test_scenarios` | List IntegrationTestScenarios for an application |
+| `list_release_plans` | List ReleasePlans; filter by application |
+| `list_releases` | List Releases with status and target environment |
+| `list_component_pipeline_runs` | List PipelineRuns for a component (build history) |
+
+Example prompts:
+
+```
+"What Konflux applications exist in namespace team-a?"
+"Show me the latest snapshot for application frontend and its integration test results"
+"List all components in application backend-api and their source repos"
+"What's the build history for component api-gateway?"
+"Are there any failed releases in namespace platform?"
+"Show me all integration test scenarios configured for application my-app"
+```
+
 ---
 
 ## Dependencies
 
 | Package | Purpose |
 |---|---|
-| `mcp>=1.3.0` | Model Context Protocol SDK (FastMCP) |
+| `mcp>=1.6.0` | Model Context Protocol SDK (FastMCP + streamable-http transport) |
 | `kubernetes>=29.0.0` | Kubernetes Python client (typed APIs + dynamic client) |
 | `httpx>=0.27.0` | HTTP client for Prometheus/Alertmanager API calls |
 | `pyyaml>=6.0` | YAML parsing for `apply_manifest` and ManifestWork creation |

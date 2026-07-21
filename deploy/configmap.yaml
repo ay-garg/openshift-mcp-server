@@ -7,8 +7,8 @@ metadata:
     app.kubernetes.io/name: ocp-mcp-server
 data:
   # ── MCP transport ────────────────────────────────────────────────────────
-  # Always "sse" in Kubernetes/OpenShift — stdio has no network exposure.
-  MCP_TRANSPORT: "sse"
+  # Always "streamable-http" in Kubernetes/OpenShift — stdio has no network exposure.
+  MCP_TRANSPORT: "streamable-http"
   MCP_HOST: "0.0.0.0"
   MCP_PORT: "8080"
   OCP_MODE: "server"

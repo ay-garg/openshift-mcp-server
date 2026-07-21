@@ -20,7 +20,7 @@
 # ACCESS via oc port-forward (required):
 #   oc port-forward svc/mcp-inspector 6274:6274 6277:6277 -n ocp-mcp
 #   Open http://localhost:6274 in your browser.
-#   Set transport SSE, URL: http://ocp-mcp-server:8080/sse
+#   Set transport Streamable HTTP, URL: http://ocp-mcp-server:8080/mcp
 #
 # ALTERNATIVE for remote/browser access without port-forward:
 #   Use the built-in Gradio web UI (OCP_MODE=ui) — it has a Tool Playground tab

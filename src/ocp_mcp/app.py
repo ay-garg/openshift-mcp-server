@@ -81,7 +81,7 @@ def _parse_port_or_default(raw: str, name: str, default: int) -> int:
         # SystemExits propagate normally.
         logging.warning(
             "Invalid %s value %r; defaulting to %d for singleton construction. "
-            "The SSE server will refuse to start if %s remains invalid. Reason: %s",
+            "The streamable-http server will refuse to start if %s remains invalid. Reason: %s",
             name, raw, default, name, e.code,
         )
         return default
@@ -91,7 +91,7 @@ def _parse_port_or_default(raw: str, name: str, default: int) -> int:
 # from the actual host. FastMCP only enables DNS-rebinding protection when host
 # is a loopback address (127.0.0.1 / ::1 / localhost); for all other hosts
 # transport_security is None. Default to 127.0.0.1 — operators who need
-# external SSE access should set MCP_HOST=0.0.0.0 explicitly.
+# external access should set MCP_HOST=0.0.0.0 explicitly.
 # NOTE: these values are frozen at first import of any ocp_mcp module;
 # set env vars before importing ocp_mcp (e.g., at process start).
 _host = os.environ.get("MCP_HOST", "127.0.0.1")
@@ -114,7 +114,7 @@ else:
 
 # MCP_PORT: warn+fallback via _parse_port_or_default so that importing ocp_mcp
 # (e.g. by the Gradio UI) does not crash the UI process. server.main() calls
-# _parse_port() for strict validation before actually starting the SSE server.
+# _parse_port() for strict validation before actually starting the server.
 _port = _parse_port_or_default(
     os.environ.get("MCP_PORT", str(_DEFAULT_MCP_PORT)), "MCP_PORT", _DEFAULT_MCP_PORT
 )

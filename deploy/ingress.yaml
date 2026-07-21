@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ocp-mcp-server
+  namespace: ocp-mcp
+  labels:
+    app.kubernetes.io/name: ocp-mcp-server
+  annotations:
+    # Streamable HTTP requests can be long-lived; increase nginx proxy timeouts.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: ocp-mcp-server.example.com   # replace with your hostname
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ocp-mcp-server
+                port:
+                  number: 8080
+  # Uncomment for TLS (strongly recommended in production):
+  # tls:
+  #   - hosts:
+  #       - ocp-mcp-server.example.com
+  #     secretName: ocp-mcp-server-tls
+# After applying, MCP clients connect to: https://ocp-mcp-server.example.com/mcp

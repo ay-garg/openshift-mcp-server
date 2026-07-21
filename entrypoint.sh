@@ -4,11 +4,11 @@
 # Environment variables
 # ─────────────────────
 #   OCP_MODE       server (default) | ui
-#   MCP_TRANSPORT  stdio (default)  | sse
+#   MCP_TRANSPORT  stdio (default)  | streamable-http
 #
-# In Kubernetes/OpenShift always set MCP_TRANSPORT=sse — stdio has no network
-# exposure and is only useful when the container's stdin/stdout is piped by
-# the MCP client process (e.g. Claude Desktop on localhost).
+# In Kubernetes/OpenShift always set MCP_TRANSPORT=streamable-http — stdio has
+# no network exposure and is only useful when the container's stdin/stdout is
+# piped by the MCP client process (e.g. Claude Desktop on localhost).
 set -euo pipefail
 
 OCP_MODE="${OCP_MODE:-server}"

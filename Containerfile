@@ -95,8 +95,8 @@ USER 1001
 WORKDIR /app
 
 # Port legend:
-#   8080 — MCP SSE transport (MCP_TRANSPORT=sse)
-#   7860 — Gradio web UI    (OCP_MODE=ui)
+#   8080 — MCP streamable-http transport (MCP_TRANSPORT=streamable-http)
+#   7860 — Gradio web UI                 (OCP_MODE=ui)
 # MCP Inspector runs as a separate pod/service — see deploy/inspector.yaml.
 EXPOSE 8080
 EXPOSE 7860

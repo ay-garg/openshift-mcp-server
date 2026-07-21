@@ -36,7 +36,7 @@ spec:
           imagePullPolicy: Always
 
           ports:
-            - name: mcp-sse
+            - name: mcp-http
               containerPort: 8080
               protocol: TCP
 
@@ -110,8 +110,7 @@ spec:
               mountPath: /home/ocp-mcp
 
           # ── Health probes ───────────────────────────────────────────────
-          # SSE endpoint is long-lived; tcpSocket proves the port is accepting
-          # connections without consuming an SSE slot.
+          # tcpSocket proves the port is accepting connections.
           livenessProbe:
             tcpSocket:
               port: 8080

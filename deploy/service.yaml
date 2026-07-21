@@ -10,7 +10,7 @@ spec:
     app.kubernetes.io/name: ocp-mcp-server
   type: ClusterIP
   ports:
-    - name: mcp-sse
+    - name: mcp-http
       port: 8080
       targetPort: 8080
       protocol: TCP

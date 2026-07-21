@@ -34,15 +34,12 @@ import ocp_mcp.prompts              # noqa: F401
 def main() -> None:
     transport = os.environ.get("MCP_TRANSPORT", "stdio").lower()
 
-    if transport == "sse":
-        # Validate MCP_PORT for SSE only — stdio uses stdin/stdout, not the port.
-        # _parse_port gives a clear error (with range) and warns on whitespace.
-        # Writing back to mcp.settings.port ensures the server binds on the
-        # validated port even if app.py fell back to 8080 at import time.
+    if transport == "streamable-http":
+        # Validate MCP_PORT for streamable-http only — stdio uses stdin/stdout.
         mcp.settings.port = _parse_port(
             os.environ.get("MCP_PORT", str(_DEFAULT_MCP_PORT)), "MCP_PORT"
         )
-        mcp.run(transport="sse")
+        mcp.run(transport="streamable-http")
     else:
         mcp.run(transport="stdio")
 
