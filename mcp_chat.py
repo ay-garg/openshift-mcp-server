@@ -105,20 +105,15 @@ def prompt_config() -> dict[str, Any]:
 
     # ── MCP server ──────────────────────────────────────────────────────────
     cfg["mcp_transport"] = ask_choice(
-        "MCP transport",
+        "MCP transport  (check your server's docs or startup logs)",
         [
-            ("sse",             "SSE  (openshift-mcp-server, default :8080/sse)"),
-            ("streamable-http", "Streamable-HTTP  (lumino-mcp-server, default :8000/mcp)"),
+            ("sse",             "SSE              — older transport, endpoint is typically /sse"),
+            ("streamable-http", "Streamable-HTTP  — newer transport, endpoint is typically /mcp"),
         ],
     )
-    _default_url = (
-        "http://localhost:8080/sse"
-        if cfg["mcp_transport"] == "sse"
-        else "http://localhost:8000/mcp"
-    )
     cfg["mcp_url"] = ask(
-        "MCP server URL",
-        os.environ.get("MCP_SERVER_URL", _default_url),
+        "MCP server URL  (e.g. http://host:port/sse  or  http://host:port/mcp)",
+        os.environ.get("MCP_SERVER_URL", ""),
     )
     cfg["mcp_ssl_verify"] = _ask_ssl_verify(cfg["mcp_url"], "The MCP server URL")
 
