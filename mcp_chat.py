@@ -30,6 +30,7 @@ import httpx
 
 from mcp import ClientSession
 from mcp.client.sse import sse_client
+from mcp.client.streamable_http import streamablehttp_client
 
 
 # ── Interactive setup ─────────────────────────────────────────────────────────
@@ -103,9 +104,21 @@ def prompt_config() -> dict[str, Any]:
     cfg: dict[str, Any] = {}
 
     # ── MCP server ──────────────────────────────────────────────────────────
+    cfg["mcp_transport"] = ask_choice(
+        "MCP transport",
+        [
+            ("sse",             "SSE  (openshift-mcp-server, default :8080/sse)"),
+            ("streamable-http", "Streamable-HTTP  (lumino-mcp-server, default :8000/mcp)"),
+        ],
+    )
+    _default_url = (
+        "http://localhost:8080/sse"
+        if cfg["mcp_transport"] == "sse"
+        else "http://localhost:8000/mcp"
+    )
     cfg["mcp_url"] = ask(
-        "MCP server SSE URL",
-        os.environ.get("MCP_SERVER_URL", "http://localhost:8080/sse"),
+        "MCP server URL",
+        os.environ.get("MCP_SERVER_URL", _default_url),
     )
     cfg["mcp_ssl_verify"] = _ask_ssl_verify(cfg["mcp_url"], "The MCP server URL")
 
@@ -396,8 +409,15 @@ async def main() -> None:
     # _patch_httpx_async_ssl patches httpx.AsyncClient's constructor for the
     # duration of the MCP connection so sse_client() skips cert verification
     # when the server uses a self-signed certificate.
+    _mcp_ctx = (
+        sse_client(cfg["mcp_url"])
+        if cfg["mcp_transport"] == "sse"
+        else streamablehttp_client(cfg["mcp_url"])
+    )
+
     with _patch_httpx_async_ssl(mcp_verify):
-        async with sse_client(cfg["mcp_url"]) as (read, write):
+        async with _mcp_ctx as conn:
+            read, write = conn[0], conn[1]  # sse: 2-tuple; streamable-http: 3-tuple
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 mcp_tools_raw = (await session.list_tools()).tools
