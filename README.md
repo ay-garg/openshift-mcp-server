@@ -1,5 +1,9 @@
 # OpenShift & Kubernetes MCP Server
 
+[![OpenShift 4 MCP Server MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/ay-garg/openshift-mcp-server/badges/card.svg)](https://glama.ai/mcp/servers/ay-garg/openshift-mcp-server)
+
+[![OpenShift 4 MCP Server MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/ay-garg/openshift-mcp-server/badges/score.svg)](https://glama.ai/mcp/servers/ay-garg/openshift-mcp-server)
+
 A comprehensive [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that exposes **216 tools**, **7 resources**, and **10 runbook prompts** for cluster operations — all driven by an LLM. Works with **OpenShift 4** and **vanilla Kubernetes**; OpenShift-specific tools (Routes, BuildConfigs, SCCs, OLM, Machines, RHOAI, Virtualization) return a clear error on plain Kubernetes clusters that don't have those APIs.
 
 Connect it to Claude (Desktop, Code, or API) and ask natural-language questions like:
