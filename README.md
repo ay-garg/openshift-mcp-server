@@ -104,7 +104,7 @@ Connect it to Claude (Desktop, Code, or API) and ask natural-language questions 
 ## Installation
 
 ```bash
-git clone https://github.com/your-org/openshift-mcp-server.git
+git clone https://github.com/ay-garg/openshift-mcp-server.git
 cd openshift-mcp-server
 
 python3 -m venv .venv
@@ -422,7 +422,7 @@ This section covers building the container image and deploying to OpenShift or a
 
 ```bash
 # Clone and enter the repo
-git clone https://github.com/your-org/openshift-mcp-server.git
+git clone https://github.com/ay-garg/openshift-mcp-server.git
 cd openshift-mcp-server
 
 # Build with Podman (recommended for OpenShift)
